@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Bubble Pop!</title>
+    <style>
+        body {
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(180deg, #1a1a2e 0%, #16213e 100%);
+            font-family: Arial, sans-serif;
+            color: white;
+            overflow: hidden;
+        }
+
+        #gameContainer {
+            position: relative;
+            width: 100%;
+            max-width: 800px;
+            height: 600px;
+        }
+
+        canvas {
+            border: 2px solid #4a4e69;
+            border-radius: 10px;
+            background: rgba(0, 0, 0, 0.3);
+        }
+
+        .hud {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            font-size: 24px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+        }
+
+        .game-over {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.8);
+            padding: 20px 40px;
+            border-radius: 10px;
+            text-align: center;
+            display: none;
+        }
+
+        button {
+            background: #4CAF50;
+            border: none;
+            padding: 10px 20px;
+            color: white;
+            font-size: 18px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 10px;
+            transition: transform 0.1s;
+        }
+
+        button:hover {
+            transform: scale(1.05);
+        }
+
+        .particle {
+            position: absolute;
+            pointer-events: none;
+            animation: fadeOut 0.5s ease-out forwards;
+        }
+
+        @keyframes fadeOut {
+            0% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+            100% { transform: translate(-50%, -50%) scale(2); opacity: 0; }
+        }
+    </style>
+</head>
+<body>
+    <h1>Bubble Pop!</h1>
+    <div id="gameContainer">
+        <canvas id="gameCanvas"></canvas>
+        <div class="hud">
+            Score: <span id="score">0</span><br>
+            Lives: <span id="lives">3</span>
+        </div>
+        <div class="game-over">
+            <h2>Game Over!</h2>
+            <p>Final Score: <span id="finalScore">0</span></p>
+            <button id="restartButton">Play Again</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreElement = document.getElementById('score');
+        const livesElement = document.getElementById('lives');
+        const gameOverScreen = document.querySelector('.game-over');
+        const finalScoreElement = document.getElementById('finalScore');
+        const restartButton = document.getElementById('restartButton');
+
+        let score = 0;
+        let lives = 3;
+        let bubbles = [];
+        let isGameOver = false;
+        let animationId;
+
+        function resizeCanvas() {
+            canvas.width = canvas.parentElement.clientWidth;
+            canvas.height = canvas.parentElement.clientHeight;
+        }
+
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+
+        class Bubble {
+            constructor() {
+                this.radius = Math.random() * 20 + 20;
+                this.x = Math.random() * (canvas.width - this.radius * 2) + this.radius;
+                this.y = canvas.height + this.radius;
+                this.speed = Math.random() * 2 + 1;
+                this.color = `hsl(${Math.random() * 360}, 70%, 50%)`;
+                this.clicked = false;
+            }
+
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.fill();
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                
+                // Add shine effect
+                ctx.beginPath();
+                ctx.arc(this.x - this.radius * 0.3, this.y - this.radius * 0.3, this.radius * 0.2, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+                ctx.fill();
+            }
+
+            update() {
+                this.y -= this.speed;
+                if (this.y < -this.radius && !this.clicked) {
+                    lives--;
+                    livesElement.textContent = lives;
+                    if (lives <= 0) {
+                        gameOver();
+                    }
+                    return true;
+                }
+                return false;
+            }
+        }
+
+        function createParticles(x, y, color) {
+            for (let i = 0; i < 8; i++) {
+                const particle = document.createElement('div');
+                particle.className = 'particle';
+                particle.style.left = x + 'px';
+                particle.style.top = y + 'px';
+                particle.style.width = '10px';
+                particle.style.height = '10px';
+                particle.style.background = color;
+                particle.style.borderRadius = '50%';
+                document.body.appendChild(particle);
+                
+                setTimeout(() => particle.remove(), 500);
+            }
+        }
+
+        function gameOver() {
+            isGameOver = true;
+            finalScoreElement.textContent = score;
+            gameOverScreen.style.display = 'block';
+            cancelAnimationFrame(animationId);
+        }
+
+        function resetGame() {
+            score = 0;
+            lives = 3;
+            bubbles = [];
+            isGameOver = false;
+            scoreElement.textContent = score;
+            livesElement.textContent = lives;
+            gameOverScreen.style.display = 'none';
+            animate();
+        }
+
+        function spawnBubble() {
+            if (Math.random() < 0.03) {
+                bubbles.push(new Bubble());
+            }
+        }
+
+        function animate() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            spawnBubble();
+            
+            bubbles = bubbles.filter(bubble => {
+                bubble.draw();
+                return !bubble.update();
+            });
+            
+            if (!isGameOver) {
+                animationId = requestAnimationFrame(animate);
+            }
+        }
+
+        canvas.addEventListener('click', (event) => {
+            const rect = canvas.getBoundingClientRect();
+            const clickX = event.clientX - rect.left;
+            const clickY = event.clientY - rect.top;
+            
+            bubbles.forEach((bubble, index) => {
+                const distance = Math.hypot(clickX - bubble.x, clickY - bubble.y);
+                if (distance < bubble.radius) {
+                    bubble.clicked = true;
+                    bubbles.splice(index, 1);
+                    score += Math.floor(50 / bubble.radius);
+                    scoreElement.textContent = score;
+                    createParticles(event.clientX, event.clientY, bubble.color);
+                }
+            });
+        });
+
+        restartButton.addEventListener('click', resetGame);
+        
+        resetGame();
+    </script>
+</body>
+</html>
